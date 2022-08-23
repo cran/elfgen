@@ -7,6 +7,7 @@
 #' @return A dataframe of nhdplus segments containing species richness data (NT Total values) and mean annual flow (MAF) data.
 #' @import utils
 #' @import stringr
+#' @import curl
 #' @import sbtools
 #' @import nhdplusTools
 #' @export elfdata
@@ -18,25 +19,35 @@
 #' # You may enter either a 6, 8, 10, or 12-digit HUC code.
 #' # By default the ichthy dataset is downloaded to a temp directory, however this may be overridden by
 #' # supplying a local path of interest using the input parameter 'ichthy.localpath'
-#' watershed.df <- elfdata('0208020104')
+#' watershed.df <- elfdata(watershed.code = '0208020104', ichthy.localpath = tempdir())
 #' head(watershed.df)
 #' }
-elfdata <- function (watershed.code,ichthy.localpath = tempdir()) {
+elfdata <- function (watershed.code,ichthy.localpath) {
 
   if (inherits(watershed.code,"data.frame") == TRUE) {
     ichthy.dataframe <- watershed.code
     watershed.code <- '02080106'
   } else {
 
-  HUCRES.df <- data.frame(HUCRES = c(12, 10, 8, 6))
-  if (length(which(HUCRES.df$HUCRES == nchar(watershed.code))) < 1) {
-    stop("Invalid length of hydrologic unit code")
-  }
+    HUCRES.df <- data.frame(HUCRES = c(12, 10, 8, 6))
+    if (length(which(HUCRES.df$HUCRES == nchar(watershed.code))) < 1) {
+      stop("Invalid length of hydrologic unit code")
+    }
 
     #retrieve ichthymaps file from sciencebase
     ichthy_filename <- "IchthyMaps_v1_20150520.csv"
-	ichthy.localpath <- gsub("\\", "/", ichthy.localpath, fixed=TRUE)
+    ichthy.localpath <- gsub("\\", "/", ichthy.localpath, fixed=TRUE)
     destfile <- file.path(ichthy.localpath,ichthy_filename,fsep="/")
+
+    #test if you have internet connection
+    if (curl::has_internet() == FALSE) {
+      return("Internet resource not available, check internet connection and try again")
+    }
+
+    #ping ScienceBase to see if it is available
+    if (sbtools::sb_ping() == FALSE) {
+      return("Connection to ScienceBase can not be established, Check internet connection and try again")
+    }
 
     #file downloaded into local directory, as long as file exists it will not be re-downloaded
     if (file.exists(destfile) == FALSE) {
